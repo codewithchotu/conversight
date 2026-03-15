@@ -22,12 +22,15 @@ const API_KEYS = [
     process.env.GEMINI_KEY_2,
     process.env.GEMINI_KEY_3
 ].filter(Boolean);
+<<<<<<< HEAD
 
 if (API_KEYS.length === 0) {
     console.error("No Gemini API keys found in environment variables");
     process.exit(1);
 }
 
+=======
+>>>>>>> 61b8168a2afe582364d11a97b54d4273f23871a4
 let currentKeyIndex = 0;
 const queryCache = {};
 
@@ -144,5 +147,10 @@ app.post('/api/query', async (req, res) => {
 
 /* ===== START SERVER ===== */
 app.listen(port, () => {
+<<<<<<< HEAD
     console.log(`Server running on port ${port}`);
 });
+=======
+    console.log(`Server running on ${port}`);
+});
+>>>>>>> 61b8168a2afe582364d11a97b54d4273f23871a4
