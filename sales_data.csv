@@ -1,0 +1,31 @@
+id,date,region,product_category,revenue,units_sold,customer_satisfaction
+1,2023-01-15,North,Electronics,4500.50,15,4.8
+2,2023-01-20,South,Clothing,1200.00,40,4.2
+3,2023-01-25,East,Home Goods,3200.75,8,4.5
+4,2023-02-10,West,Electronics,5100.00,18,4.9
+5,2023-02-14,North,Clothing,800.00,25,3.9
+6,2023-02-28,East,Electronics,4200.25,14,4.6
+7,2023-03-05,South,Home Goods,2800.50,7,4.3
+8,2023-03-12,West,Clothing,1500.00,50,4.1
+9,2023-03-20,North,Home Goods,3600.00,9,4.7
+10,2023-03-25,East,Clothing,950.00,30,4.0
+11,2023-04-02,South,Electronics,4800.00,16,4.8
+12,2023-04-15,West,Home Goods,3100.25,8,4.4
+13,2023-05-01,North,Electronics,5500.75,19,4.9
+14,2023-05-18,East,Home Goods,3900.00,10,4.6
+15,2023-06-10,South,Clothing,1800.50,60,4.2
+16,2023-06-22,West,Electronics,6200.00,22,5.0
+17,2023-07-05,North,Clothing,1100.00,35,4.0
+18,2023-07-15,East,Electronics,4700.50,15,4.7
+19,2023-08-01,South,Home Goods,2500.00,6,4.1
+20,2023-08-20,West,Clothing,2100.75,70,4.3
+21,2023-09-10,North,Home Goods,4100.50,11,4.8
+22,2023-09-25,East,Clothing,1300.00,42,4.2
+23,2023-10-05,South,Electronics,5300.25,18,4.9
+24,2023-10-18,West,Home Goods,3400.00,9,4.5
+25,2023-11-02,North,Electronics,6000.50,21,5.0
+26,2023-11-15,East,Home Goods,4300.75,12,4.7
+27,2023-12-01,South,Clothing,2400.00,80,4.4
+28,2023-12-10,West,Electronics,7100.25,25,4.9
+29,2023-12-20,North,Home Goods,5200.00,14,4.8
+30,2023-12-28,East,Clothing,1600.50,55,4.3
