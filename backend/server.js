@@ -18,11 +18,10 @@ app.use(express.json());
 
 /* ================= GEMINI KEYS FROM ENV ================= */
 const API_KEYS = [
-    process.env.AIzaSyBY - dVN0h_LYuwJTJyNKA2A46NeJB6Ra5s,
-    process.env.AIzaSyDDgJCpsJjaKugPLAgTjFpSAht43Rt2eOw,
-    process.env.AIzaSyCZpbcSib4ObFgI2d7uga9H3CpCXl8lbMo
+    process.env.GEMINI_KEY_1,
+    process.env.GEMINI_KEY_2,
+    process.env.GEMINI_KEY_3
 ].filter(Boolean);
-
 let currentKeyIndex = 0;
 const queryCache = {};
 
