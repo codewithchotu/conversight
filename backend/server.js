@@ -16,12 +16,17 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-/* ================= GEMINI KEYS FROM ENV ================= */
+/* ===== GEMINI KEYS FROM ENV ===== */
 const API_KEYS = [
-    process.env.AIzaSyBY - dVN0h_LYuwJTJyNKA2A46NeJB6Ra5s,
-    process.env.AIzaSyDDgJCpsJjaKugPLAgTjFpSAht43Rt2eOw,
-    process.env.AIzaSyCZpbcSib4ObFgI2d7uga9H3CpCXl8lbMo
+    process.env.GEMINI_KEY_1,
+    process.env.GEMINI_KEY_2,
+    process.env.GEMINI_KEY_3
 ].filter(Boolean);
+
+if (API_KEYS.length === 0) {
+    console.error("No Gemini API keys found in environment variables");
+    process.exit(1);
+}
 
 let currentKeyIndex = 0;
 const queryCache = {};
@@ -50,10 +55,10 @@ async function callGemini(prompt) {
     throw new Error('All Gemini keys failed');
 }
 
-/* ================= MULTER FIX FOR RENDER ================= */
+/* ===== MULTER (Render Safe) ===== */
 const upload = multer({ dest: '/tmp/' });
 
-/* ================= SQLITE ================= */
+/* ===== SQLITE MEMORY DB ===== */
 const db = new Database(':memory:');
 
 let currentTableName = null;
@@ -63,7 +68,7 @@ const generateTableName = (filename) => {
     return filename.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 };
 
-/* ================= UPLOAD API ================= */
+/* ===== UPLOAD CSV ===== */
 app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -71,7 +76,9 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     const originalName = req.file.originalname;
     currentTableName = generateTableName(originalName);
 
-    const parser = fs.createReadStream(filePath).pipe(parse({ columns: true, skip_empty_lines: true }));
+    const parser = fs.createReadStream(filePath).pipe(
+        parse({ columns: true, skip_empty_lines: true })
+    );
 
     let rows = [];
     let columns = [];
@@ -84,17 +91,21 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     parser.on('end', () => {
         if (rows.length === 0) return res.status(400).json({ error: 'Empty CSV' });
 
-        const createSQL = `CREATE TABLE ${currentTableName} (${columns.map(c => `"${c}" TEXT`).join(', ')})`;
+        const createSQL = `CREATE TABLE ${currentTableName} (${columns
+            .map((c) => `"${c}" TEXT`)
+            .join(', ')})`;
 
         db.exec(`DROP TABLE IF EXISTS ${currentTableName}`);
         db.exec(createSQL);
 
         const insert = db.prepare(
-            `INSERT INTO ${currentTableName} (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`
+            `INSERT INTO ${currentTableName} (${columns.join(',')}) VALUES (${columns
+                .map(() => '?')
+                .join(',')})`
         );
 
         const insertMany = db.transaction((rows) => {
-            for (const r of rows) insert.run(columns.map(c => r[c]));
+            for (const r of rows) insert.run(columns.map((c) => r[c]));
         });
 
         insertMany(rows);
@@ -106,19 +117,24 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     });
 });
 
-/* ================= FILTER API ================= */
+/* ===== FILTER API ===== */
 app.get('/api/filters', (req, res) => {
-    if (!currentTableName) return res.status(400).json({ error: 'No dataset' });
+    if (!currentTableName)
+        return res.status(400).json({ error: 'No dataset uploaded' });
+
     res.json({ schema: currentSchema });
 });
 
-/* ================= QUERY API ================= */
+/* ===== QUERY API ===== */
 app.post('/api/query', async (req, res) => {
     const { query } = req.body;
     if (!query) return res.status(400).json({ error: 'Query required' });
 
     try {
-        const prompt = `Analyze SQLite table ${currentTableName} with columns ${currentSchema.join(', ')}. User query: ${query}`;
+        const prompt = `Analyze SQLite table ${currentTableName} with columns ${currentSchema.join(
+            ', '
+        )}. User query: ${query}`;
+
         const aiResponse = await callGemini(prompt);
         res.json({ result: aiResponse });
     } catch (err) {
@@ -126,6 +142,7 @@ app.post('/api/query', async (req, res) => {
     }
 });
 
+/* ===== START SERVER ===== */
 app.listen(port, () => {
-    console.log(`Server running on ${port}`);
+    console.log(`Server running on port ${port}`);
 });
