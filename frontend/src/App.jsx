@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   UploadCloud,
-  Database,
   Sparkles,
   AlertCircle,
   RefreshCw,
@@ -9,14 +8,8 @@ import {
   ChevronRight,
   Zap,
   Info,
-  History,
-  Menu,
-  Plus,
-  X
 } from "lucide-react";
-
 import { motion, AnimatePresence } from "framer-motion";
-
 import {
   BarChart,
   Bar,
@@ -29,50 +22,29 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from "recharts";
 
-const API_BASE = "https://conversight-8jxp.onrender.com";
+const API_BASE = "https://conversight-plum.vercel.app";
 
-const COLORS = [
-  "#8b5cf6",
-  "#0ea5e9",
-  "#2dd4bf",
-  "#f472b6",
-  "#3b82f6",
-  "#f59e0b",
-  "#ec4899"
-];
+const COLORS = ["#8b5cf6", "#0ea5e9", "#2dd4bf", "#f472b6"];
 
-const BubbleBackground = () => {
-  const bubbles = Array.from({ length: 20 }).map((_, i) => ({
-    id: i,
-    size: Math.random() * 60 + 20,
-    left: Math.random() * 100,
-    delay: Math.random() * 15,
-    duration: Math.random() * 10 + 15
-  }));
-
-  return (
-    <div className="bubble-bg-container">
-      {bubbles.map(bubble => (
-        <div
-          key={bubble.id}
-          className="bubble"
-          style={{
-            width: `${bubble.size}px`,
-            height: `${bubble.size}px`,
-            left: `${bubble.left}%`,
-            animationDelay: `${bubble.delay}s`,
-            animationDuration: `${bubble.duration}s`
-          }}
-        >
-          <div className="bubble-glow" />
-        </div>
-      ))}
-    </div>
-  );
-};
+const BubbleBackground = () => (
+  <div className="bubble-bg-container">
+    {Array.from({ length: 15 }).map((_, i) => (
+      <div
+        key={i}
+        className="bubble"
+        style={{
+          width: `${Math.random() * 60 + 20}px`,
+          height: `${Math.random() * 60 + 20}px`,
+          left: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 10}s`,
+        }}
+      />
+    ))}
+  </div>
+);
 
 const Waves = () => (
   <div className="waves-container">
@@ -81,230 +53,142 @@ const Waves = () => (
   </div>
 );
 
-function App() {
-  const [datasetInfo, setDatasetInfo] = useState(null);
-  const [dashboardItems, setDashboardItems] = useState([]);
-  const [query, setQuery] = useState("");
-  const [isQuerying, setIsQuerying] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+const Ticker = () => (
+  <div className="ticker-wrap">
+    <div className="ticker-content">
+      {["AI", "DATA", "SQL", "INSIGHT", "CHART"].map((t, i) => (
+        <div key={i} className="ticker-item">
+          {t}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export default function App() {
+  const [isAuth, setIsAuth] = useState(false);
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
 
+  const [dataset, setDataset] = useState(null);
+  const [items, setItems] = useState([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const fileRef = useRef();
 
-  const handleLogin = e => {
+  const handleLogin = (e) => {
     e.preventDefault();
-    if (email && pass.length >= 6) {
-      setIsAuthenticated(true);
-    } else {
-      setError("Enter valid login (demo)");
-    }
+    if (email && pass.length > 5) setIsAuth(true);
   };
 
-  const uploadCSV = async file => {
-    if (!file) return;
-    setIsUploading(true);
-
+  const upload = async (file) => {
     const fd = new FormData();
     fd.append("file", file);
+    setLoading(true);
 
-    try {
-      const res = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        body: fd
-      });
-      const data = await res.json();
+    const res = await fetch(`${API_BASE}/api/upload`, {
+      method: "POST",
+      body: fd,
+    });
 
-      setDatasetInfo(data);
+    const data = await res.json();
+    setDataset(data);
+    setLoading(false);
 
-      setDashboardItems([
-        {
-          type: "system",
-          content: `Dataset ${file.name} uploaded 🚀`
-        }
-      ]);
-    } catch (e) {
-      setError("Upload failed");
-    }
-
-    setIsUploading(false);
+    setItems([{ type: "system", content: "Dataset Loaded 🚀" }]);
   };
 
-const askAI = async () => {
-  if (!query) return;
+  const ask = async (e) => {
+    e.preventDefault();
+    if (!query) return;
 
-  setIsQuerying(true);
+    const q = query;
+    setQuery("");
 
-  const res = await fetch(`${API_BASE}/api/query`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query })
-  });
-  const parseAIResponse = (text) => {
-  const nums = text.match(/\d+/g);
+    setItems((p) => [...p, { type: "user", content: q }]);
 
-  if (!nums) {
-    return {
-      insight: text,
-      chartType: null,
-      chartData: []
-    };
-  }
-    const renderChart = (type, data) => {
-  if (!data.length) return null;
+    const res = await fetch(`${API_BASE}/api/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q }),
+    });
 
-  if (type === "pie")
-    return (
-      <PieChart width={500} height={300}>
-        <Pie data={data} dataKey="value">
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Pie>
-      </PieChart>
-    );
+    const data = await res.json();
 
-  if (type === "line")
-    return (
-      <LineChart width={500} height={300} data={data}>
-        <Line dataKey="value" stroke="#8b5cf6" />
-      </LineChart>
-    );
-
-  return (
-    <BarChart width={500} height={300} data={data}>
-      <Bar dataKey="value" fill="#8b5cf6" />
-    </BarChart>
-  );
-};
-
-  const data = nums.map((n, i) => ({
-    name: "Item " + (i + 1),
-    value: Number(n)
-  }));
-
-  let chartType = "bar";
-
-  if (text.toLowerCase().includes("pie")) chartType = "pie";
-  if (text.toLowerCase().includes("trend")) chartType = "line";
-
-  return {
-    insight: text,
-    chartType,
-    chartData: data,
-    sql: "AUTO GENERATED SQL PREVIEW"
-  };
-};
-
-  const data = await res.json();
-
-  const parsed = parseAIResponse(data.result);
-
-  setDashboardItems(prev => [
-    ...prev,
-    { type: "chart", ...parsed }
-  ]);
-
-  setIsQuerying(false);
-};
-
-      const data = await res.json();
-
-      let chartType = "bar";
-
-      if (data.result.includes("pie")) chartType = "pie";
-      if (data.result.includes("trend")) chartType = "line";
-      if (data.result.includes("total")) chartType = "number";
-
-      setDashboardItems(prev => [
-        ...prev,
-        {
-          type: "chart",
-          chartType,
-          content: data.result
-        }
-      ]);
-    } catch (e) {
-      setError("Query failed");
-    }
-
-    setIsQuerying(false);
+    setItems((p) => [
+      ...p,
+      {
+        type: "chart",
+        chartType: data.chartType,
+        chartData: data.data,
+        insight: data.insight,
+        sql: data.sql,
+      },
+    ]);
   };
 
-const extractChartData = (text) => {
-  const numbers = text.match(/\d+/g);
+  const renderChart = (type, data) => {
+    if (!data) return null;
 
-  if (!numbers) return null;
+    if (type === "pie")
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie data={data} dataKey="value" nameKey="name">
+              {data.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      );
 
-  return numbers.map((n, i) => ({
-    name: "Item " + (i + 1),
-    value: Number(n)
-  }));
-};
+    if (type === "line")
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Line type="monotone" dataKey="value" stroke="#8b5cf6" />
+          </LineChart>
+        </ResponsiveContainer>
+      );
 
-const renderChart = (text) => {
-  const data = extractChartData(text);
-
-  if (!data) return null;
-
-  if (text.toLowerCase().includes("pie"))
     return (
       <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie data={data} dataKey="value">
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Pie>
-        </PieChart>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Bar dataKey="value" fill="#0ea5e9" />
+        </BarChart>
       </ResponsiveContainer>
     );
+  };
 
-  if (text.toLowerCase().includes("trend") || text.toLowerCase().includes("over time"))
-    return (
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data}>
-          <Line dataKey="value" stroke="#8b5cf6" />
-        </LineChart>
-      </ResponsiveContainer>
-    );
-
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data}>
-        <Bar dataKey="value" fill="#8b5cf6" />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-};
-
-  if (!isAuthenticated)
+  if (!isAuth)
     return (
       <div className="login-screen">
         <BubbleBackground />
         <Waves />
-
-        <form onSubmit={handleLogin} className="login-card">
-          <h1 className="login-logo">CONVERSIGHT</h1>
-
-          <input
-            placeholder="email"
-            className="auth-input"
-            onChange={e => setEmail(e.target.value)}
-          />
-          <input
-            placeholder="password"
-            className="auth-input"
-            type="password"
-            onChange={e => setPass(e.target.value)}
-          />
-
-          <button className="auth-submit-btn">Login</button>
-
-          {error && <p className="text-red-400">{error}</p>}
-        </form>
+        <motion.div className="login-card">
+          <Zap size={40} />
+          <h1>Conversight</h1>
+          <form onSubmit={handleLogin}>
+            <input
+              placeholder="email"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="password"
+              onChange={(e) => setPass(e.target.value)}
+            />
+            <button>Login</button>
+          </form>
+        </motion.div>
       </div>
     );
 
@@ -312,57 +196,61 @@ const renderChart = (text) => {
     <div className="app-container">
       <BubbleBackground />
       <Waves />
+      <Ticker />
 
-      {!datasetInfo && (
+      {!dataset && (
         <div className="upload-hero">
           <div
             className="upload-zone"
             onClick={() => fileRef.current.click()}
           >
-            <UploadCloud />
-            <p>Upload CSV</p>
+            <UploadCloud size={40} />
+            Upload CSV
           </div>
-
           <input
             ref={fileRef}
             type="file"
             hidden
-            onChange={e => uploadCSV(e.target.files[0])}
+            onChange={(e) => upload(e.target.files[0])}
           />
         </div>
       )}
 
-      {datasetInfo && (
-        <>
-          <div className="space-y-6">
-            {dashboardItems.map((item, i) => (
-              <div key={i} className="glass-panel">
-                {item.type === "user" && <p>{item.content}</p>}
-                {item.type === "system" && <p>{item.content}</p>}
-                {item.type === "chart" && (
-                  <>
-                    <p>{item.content}</p>
-                    {renderChart(item.content)}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+      {dataset && (
+        <div className="chat-interface">
+          {items.map((it, i) => (
+            <div key={i}>
+              {it.type === "user" && <div className="user">{it.content}</div>}
 
-          <form onSubmit={handleQuery} className="query-bar">
+              {it.type === "system" && (
+                <div className="system">{it.content}</div>
+              )}
+
+              {it.type === "chart" && (
+                <div className="glass-panel">
+                  {renderChart(it.chartType, it.chartData)}
+                  <div className="insight-card">{it.insight}</div>
+                  <details>
+                    <summary>SQL</summary>
+                    <pre>{it.sql}</pre>
+                  </details>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <form onSubmit={ask} className="query-bar">
             <input
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              className="query-input"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask data..."
             />
-            <button className="query-btn">
+            <button>
               <ChevronRight />
             </button>
           </form>
-        </>
+        </div>
       )}
     </div>
   );
 }
-
-export default App;
