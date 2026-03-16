@@ -1,30 +1,40 @@
-import React, { useState } from "react";
-import { UploadCloud, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer
-} from "recharts";
+import React, { useState, useRef } from "react";
+import { UploadCloud, ChevronRight, RefreshCw } from "lucide-react";
 import "./index.css";
 
 const API = "https://conversight-8jxp.onrender.com";
 
-const COLORS = ["#8b5cf6", "#0ea5e9", "#2dd4bf", "#f472b6"];
-
 export default function App() {
-  const [file, setFile] = useState(null);
-  const [uploaded, setUploaded] = useState(false);
+
+  const [isAuth, setIsAuth] = useState(false);
+  const [dataset, setDataset] = useState(false);
   const [query, setQuery] = useState("");
-  const [chartData, setChartData] = useState(null);
-  const [result, setResult] = useState("");
+  const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const uploadCSV = async () => {
-    if (!file) return alert("Upload CSV first");
+  const fileRef = useRef();
 
+  // LOGIN SCREEN
+  if (!isAuth) {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <h1 className="login-logo">CONVERSIGHT</h1>
+          <button
+            className="auth-submit-btn"
+            onClick={() => setIsAuth(true)}
+          >
+            Enter Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // CSV UPLOAD
+  const upload = async (file) => {
     const form = new FormData();
     form.append("file", file);
-
-    setLoading(true);
 
     const res = await fetch(`${API}/api/upload`, {
       method: "POST",
@@ -32,109 +42,87 @@ export default function App() {
     });
 
     const data = await res.json();
-    setUploaded(true);
-    setLoading(false);
+
+    if (!res.ok) {
+      alert(data.error);
+      return;
+    }
+
+    setDataset(true);
+    setChat([{ type: "system", text: "Dataset Loaded Successfully 🚀" }]);
   };
 
-  const askAI = async () => {
+  // ASK AI
+  const ask = async (e) => {
+    e.preventDefault();
     if (!query) return;
 
     setLoading(true);
 
     const res = await fetch(`${API}/api/query`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query })
     });
 
     const data = await res.json();
 
-    setResult(data.result);
-
-    // FAKE PIE DATA GENERATOR (until AI returns structured chart)
-    setChartData([
-      { name: "A", value: 400 },
-      { name: "B", value: 300 },
-      { name: "C", value: 200 },
-      { name: "D", value: 100 }
+    setChat(prev => [
+      ...prev,
+      { type: "user", text: query },
+      { type: "ai", text: data.result }
     ]);
 
+    setQuery("");
     setLoading(false);
   };
 
   return (
     <div className="app-container">
 
-      {!uploaded && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="glass-panel upload-hero"
-        >
-          <UploadCloud size={80} className="upload-icon" />
-
-          <h1>Conversight</h1>
+      {!dataset && (
+        <div className="upload-hero">
+          <div
+            className="upload-zone"
+            onClick={() => fileRef.current.click()}
+          >
+            <UploadCloud size={60} />
+            <p>Upload CSV</p>
+          </div>
 
           <input
             type="file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files[0])}
+            hidden
+            ref={fileRef}
+            onChange={(e) => upload(e.target.files[0])}
           />
-
-          <button className="query-btn" onClick={uploadCSV}>
-            Upload Dataset
-          </button>
-        </motion.div>
+        </div>
       )}
 
-      {uploaded && (
+      {dataset && (
         <>
-          <div className="chat-interface">
-
-            <h1 className="logo-text-glow">Conversight Dashboard</h1>
-
-            {chartData && (
-              <div className="glass-panel chart-wrapper">
-                <ResponsiveContainer width="100%" height={400}>
-                  <PieChart>
-                    <Pie data={chartData} dataKey="value">
-                      {chartData.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+          <div className="chat-box">
+            {chat.map((c, i) => (
+              <div key={i} className={c.type}>
+                {c.text}
               </div>
-            )}
-
-            {result && (
-              <div className="glass-panel">
-                <h2>AI Insight</h2>
-                <p>{result}</p>
-              </div>
-            )}
-
+            ))}
           </div>
 
-          <div className="query-bar">
+          <form className="query-bar" onSubmit={ask}>
             <input
               className="query-input"
-              placeholder="Ask AI about dataset..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask AI..."
             />
-            <button className="query-btn" onClick={askAI}>
-              <ChevronRight />
+
+            <button className="query-btn">
+              {loading ? <RefreshCw className="spin" /> : <ChevronRight />}
             </button>
-          </div>
+          </form>
         </>
       )}
-
-      {loading && <p style={{ textAlign: "center" }}>AI Processing...</p>}
-
     </div>
   );
 }
