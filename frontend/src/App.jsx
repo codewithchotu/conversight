@@ -173,46 +173,52 @@ function App() {
     setIsQuerying(false);
   };
 
-  const renderChart = type => {
-    const dummy = [
-      { name: "A", value: 40 },
-      { name: "B", value: 80 },
-      { name: "C", value: 20 }
-    ];
+const extractChartData = (text) => {
+  const numbers = text.match(/\d+/g);
 
-    if (type === "pie")
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie data={dummy} dataKey="value">
-              {dummy.map((_, i) => (
-                <Cell key={i} fill={COLORS[i]} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-      );
+  if (!numbers) return null;
 
-    if (type === "line")
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={dummy}>
-            <Line dataKey="value" stroke="#8b5cf6" />
-          </LineChart>
-        </ResponsiveContainer>
-      );
+  return numbers.map((n, i) => ({
+    name: "Item " + (i + 1),
+    value: Number(n)
+  }));
+};
 
-    if (type === "number")
-      return <h1 className="text-7xl text-center">123</h1>;
+const renderChart = (text) => {
+  const data = extractChartData(text);
 
+  if (!data) return null;
+
+  if (text.toLowerCase().includes("pie"))
     return (
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={dummy}>
-          <Bar dataKey="value" fill="#8b5cf6" />
-        </BarChart>
+        <PieChart>
+          <Pie data={data} dataKey="value">
+            {data.map((_, i) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+        </PieChart>
       </ResponsiveContainer>
     );
-  };
+
+  if (text.toLowerCase().includes("trend") || text.toLowerCase().includes("over time"))
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <Line dataKey="value" stroke="#8b5cf6" />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <Bar dataKey="value" fill="#8b5cf6" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
 
   if (!isAuthenticated)
     return (
@@ -276,7 +282,7 @@ function App() {
                 {item.type === "chart" && (
                   <>
                     <p>{item.content}</p>
-                    {renderChart(item.chartType)}
+                    {renderChart(item.content)}
                   </>
                 )}
               </div>
