@@ -13,143 +13,112 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+/* ✅ CORS FIX */
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://conversight-ppcw.vercel.app",
+    "https://conversight-two.vercel.app"
+  ],
+  methods: ["GET", "POST"],
+  credentials: true
+}));
+
 app.use(express.json());
 
-/* ===== GEMINI KEYS ===== */
+/* ===== GEMINI ===== */
 const API_KEYS = [
-    process.env.GEMINI_KEY_1,
-    process.env.GEMINI_KEY_2,
-    process.env.GEMINI_KEY_3
+  process.env.GEMINI_KEY_1,
+  process.env.GEMINI_KEY_2,
+  process.env.GEMINI_KEY_3
 ].filter(Boolean);
 
-if (API_KEYS.length === 0) {
-    console.error("❌ No Gemini API keys found");
-    process.exit(1);
-}
-
 let currentKeyIndex = 0;
-const queryCache = {};
+const cache = {};
 
 function getAI() {
-    return new GoogleGenerativeAI(API_KEYS[currentKeyIndex]);
+  return new GoogleGenerativeAI(API_KEYS[currentKeyIndex]);
 }
 
 async function callGemini(prompt) {
-    const cacheKey = crypto.createHash('md5').update(prompt).digest('hex');
-    if (queryCache[cacheKey]) return queryCache[cacheKey];
+  const hash = crypto.createHash('md5').update(prompt).digest('hex');
+  if (cache[hash]) return cache[hash];
 
-    for (let i = 0; i < API_KEYS.length; i++) {
-        try {
-            const model = getAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
-            const result = await model.generateContent(prompt);
-            const text = result.response.text();
-            queryCache[cacheKey] = text;
-            return text;
-        } catch {
-            currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-        }
+  for (let i = 0; i < API_KEYS.length; i++) {
+    try {
+      const model = getAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      cache[hash] = text;
+      return text;
+    } catch {
+      currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
     }
-
-    throw new Error('All Gemini keys failed');
+  }
+  throw new Error("All Gemini keys failed");
 }
 
 /* ===== FILE UPLOAD ===== */
-const upload = multer({ dest: '/tmp/' });
+const upload = multer({ dest: "/tmp/" });
+const db = new Database(":memory:");
 
-/* ===== SQLITE ===== */
-const db = new Database(':memory:');
+let table = null;
+let schema = null;
 
-let currentTableName = null;
-let currentSchema = null;
+app.get("/", (req, res) => {
+  res.send("Conversight Backend Running 🚀");
+});
 
-const generateTableName = (filename) =>
-    filename.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file" });
 
-/* ===== CSV UPLOAD ===== */
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const parser = fs.createReadStream(req.file.path).pipe(
+    parse({ columns: true, skip_empty_lines: true })
+  );
 
-    const filePath = req.file.path;
-    const originalName = req.file.originalname;
-    currentTableName = generateTableName(originalName);
+  let rows = [];
+  let cols = [];
 
-    const parser = fs.createReadStream(filePath).pipe(
-        parse({ columns: true, skip_empty_lines: true })
+  parser.on("data", (r) => {
+    if (!cols.length) cols = Object.keys(r);
+    rows.push(r);
+  });
+
+  parser.on("end", () => {
+    table = "data";
+    schema = cols;
+
+    db.exec(`DROP TABLE IF EXISTS data`);
+    db.exec(`CREATE TABLE data (${cols.map(c => `"${c}" TEXT`).join(",")})`);
+
+    const stmt = db.prepare(
+      `INSERT INTO data (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`
     );
 
-    let rows = [];
-    let columns = [];
-
-    parser.on('data', (row) => {
-        if (columns.length === 0) columns = Object.keys(row);
-        rows.push(row);
+    const insert = db.transaction((rows) => {
+      rows.forEach(r => stmt.run(cols.map(c => r[c])));
     });
 
-    parser.on('end', () => {
-        if (rows.length === 0)
-            return res.status(400).json({ error: 'Empty CSV' });
+    insert(rows);
+    fs.unlinkSync(req.file.path);
 
-        const createSQL = `CREATE TABLE ${currentTableName} (${columns
-            .map((c) => `"${c}" TEXT`)
-            .join(', ')})`;
-
-        db.exec(`DROP TABLE IF EXISTS ${currentTableName}`);
-        db.exec(createSQL);
-
-        const insert = db.prepare(
-            `INSERT INTO ${currentTableName} (${columns.join(',')})
-             VALUES (${columns.map(() => '?').join(',')})`
-        );
-
-        const insertMany = db.transaction((rows) => {
-            for (const r of rows) insert.run(columns.map((c) => r[c]));
-        });
-
-        insertMany(rows);
-
-        fs.unlinkSync(filePath);
-        currentSchema = columns;
-
-        res.json({
-            message: 'CSV loaded successfully',
-            tableName: currentTableName,
-            schema: currentSchema
-        });
-    });
-
-    parser.on('error', (err) => {
-        console.error(err);
-        res.status(500).json({ error: 'CSV parse failed' });
-    });
+    res.json({ message: "Uploaded", schema });
+  });
 });
 
-/* ===== FILTER API ===== */
-app.get('/api/filters', (req, res) => {
-    if (!currentTableName)
-        return res.status(400).json({ error: 'No dataset uploaded' });
+app.post("/api/query", async (req, res) => {
+  const { query } = req.body;
+  if (!query) return res.status(400).json({ error: "No query" });
 
-    res.json({ schema: currentSchema });
+  try {
+    const prompt = `Analyze table with columns ${schema.join(",")} and answer: ${query}`;
+    const result = await callGemini(prompt);
+    res.json({ result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-/* ===== QUERY API ===== */
-app.post('/api/query', async (req, res) => {
-    const { query } = req.body;
-    if (!query) return res.status(400).json({ error: 'Query required' });
-
-    try {
-        const prompt = `Analyze SQLite table ${currentTableName} with columns ${currentSchema.join(
-            ', '
-        )}. User query: ${query}`;
-
-        const aiResponse = await callGemini(prompt);
-        res.json({ result: aiResponse });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/* ===== START SERVER ===== */
-app.listen(port, () => {
-    console.log(`✅ Server running on port ${port}`);
-});
+app.listen(port, "0.0.0.0", () =>
+  console.log("Server running on", port)
+);;
