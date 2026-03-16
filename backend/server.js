@@ -16,12 +16,11 @@ const port = process.env.PORT || 3001;
 /* ✅ CORS FIX */
 app.use(cors({
   origin: [
-    "http://localhost:5173",
-    "https://conversight-ppcw.vercel.app",
-    "https://conversight-two.vercel.app"
+    "https://conversight-plum.vercel.app",
+    "http://localhost:5173"
   ],
-  methods: ["GET", "POST"],
-  credentials: true
+  methods: ["GET","POST"],
+  allowedHeaders: ["Content-Type"]
 }));
 
 app.use(express.json());
