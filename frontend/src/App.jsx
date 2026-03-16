@@ -1,174 +1,140 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { UploadCloud, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer
+} from "recharts";
+import "./index.css";
 
 const API = "https://conversight-8jxp.onrender.com";
+
+const COLORS = ["#8b5cf6", "#0ea5e9", "#2dd4bf", "#f472b6"];
 
 export default function App() {
   const [file, setFile] = useState(null);
   const [uploaded, setUploaded] = useState(false);
   const [query, setQuery] = useState("");
+  const [chartData, setChartData] = useState(null);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const uploadCSV = async () => {
-    if (!file) return alert("Select CSV first");
+    if (!file) return alert("Upload CSV first");
 
     const form = new FormData();
     form.append("file", file);
 
-    try {
-      setLoading(true);
-      setError("");
+    setLoading(true);
 
-      const res = await fetch(`${API}/api/upload`, {
-        method: "POST",
-        body: form
-      });
+    const res = await fetch(`${API}/api/upload`, {
+      method: "POST",
+      body: form
+    });
 
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error);
-
-      setUploaded(true);
-      alert("Dataset uploaded 🚀");
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    const data = await res.json();
+    setUploaded(true);
+    setLoading(false);
   };
 
   const askAI = async () => {
     if (!query) return;
 
-    try {
-      setLoading(true);
-      setResult("");
-      setError("");
+    setLoading(true);
 
-      const res = await fetch(`${API}/api/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ query })
-      });
+    const res = await fetch(`${API}/api/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ query })
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error);
+    setResult(data.result);
 
-      setResult(data.result);
+    // FAKE PIE DATA GENERATOR (until AI returns structured chart)
+    setChartData([
+      { name: "A", value: 400 },
+      { name: "B", value: 300 },
+      { name: "C", value: 200 },
+      { name: "D", value: 100 }
+    ]);
 
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Conversight Dashboard</h1>
+    <div className="app-container">
 
-      {/* Upload Section */}
-      <div style={styles.card}>
-        <h2>Upload Dataset</h2>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={(e) => setFile(e.target.files[0])}
-        />
-        <button style={styles.btn} onClick={uploadCSV}>
-          Upload CSV
-        </button>
+      {!uploaded && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass-panel upload-hero"
+        >
+          <UploadCloud size={80} className="upload-icon" />
 
-        {uploaded && <p style={styles.success}>Dataset uploaded successfully 🚀</p>}
-      </div>
+          <h1>Conversight</h1>
 
-      {/* Query Section */}
-      <div style={styles.card}>
-        <h2>Ask AI</h2>
-        <input
-          style={styles.input}
-          placeholder="Ask about dataset..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button style={styles.btn} onClick={askAI}>
-          Analyze
-        </button>
-      </div>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
 
-      {/* Loading */}
-      {loading && <p style={styles.loading}>Analyzing AI...</p>}
-
-      {/* Error */}
-      {error && <p style={styles.error}>{error}</p>}
-
-      {/* Result */}
-      {result && (
-        <div style={styles.result}>
-          <h3>AI Insight</h3>
-          <pre>{result}</pre>
-        </div>
+          <button className="query-btn" onClick={uploadCSV}>
+            Upload Dataset
+          </button>
+        </motion.div>
       )}
+
+      {uploaded && (
+        <>
+          <div className="chat-interface">
+
+            <h1 className="logo-text-glow">Conversight Dashboard</h1>
+
+            {chartData && (
+              <div className="glass-panel chart-wrapper">
+                <ResponsiveContainer width="100%" height={400}>
+                  <PieChart>
+                    <Pie data={chartData} dataKey="value">
+                      {chartData.map((entry, index) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {result && (
+              <div className="glass-panel">
+                <h2>AI Insight</h2>
+                <p>{result}</p>
+              </div>
+            )}
+
+          </div>
+
+          <div className="query-bar">
+            <input
+              className="query-input"
+              placeholder="Ask AI about dataset..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button className="query-btn" onClick={askAI}>
+              <ChevronRight />
+            </button>
+          </div>
+        </>
+      )}
+
+      {loading && <p style={{ textAlign: "center" }}>AI Processing...</p>}
+
     </div>
   );
 }
-
-const styles = {
-  container: {
-    background: "#0b0b0b",
-    minHeight: "100vh",
-    padding: 40,
-    color: "white",
-    fontFamily: "sans-serif"
-  },
-  title: {
-    fontSize: 50,
-    marginBottom: 30
-  },
-  card: {
-    background: "#121212",
-    padding: 25,
-    borderRadius: 10,
-    marginBottom: 20,
-    border: "1px solid #222"
-  },
-  input: {
-    width: "100%",
-    padding: 10,
-    marginTop: 10,
-    borderRadius: 6,
-    border: "none",
-    background: "#1f1f1f",
-    color: "white"
-  },
-  btn: {
-    marginTop: 10,
-    padding: "10px 20px",
-    background: "#7c3aed",
-    border: "none",
-    borderRadius: 6,
-    color: "white",
-    cursor: "pointer"
-  },
-  loading: {
-    color: "yellow"
-  },
-  error: {
-    color: "red"
-  },
-  success: {
-    color: "#22c55e"
-  },
-  result: {
-    background: "#121212",
-    padding: 20,
-    borderRadius: 10,
-    border: "1px solid #222",
-    marginTop: 20
-  }
-};
