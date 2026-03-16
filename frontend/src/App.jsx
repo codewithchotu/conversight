@@ -132,23 +132,83 @@ function App() {
     setIsUploading(false);
   };
 
-  const handleQuery = async e => {
-    e.preventDefault();
-    if (!query) return;
+const askAI = async () => {
+  if (!query) return;
 
-    const q = query;
-    setQuery("");
+  setIsQuerying(true);
 
-    setDashboardItems(prev => [...prev, { type: "user", content: q }]);
+  const res = await fetch(`${API_BASE}/api/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query })
+  });
+  const parseAIResponse = (text) => {
+  const nums = text.match(/\d+/g);
 
-    setIsQuerying(true);
+  if (!nums) {
+    return {
+      insight: text,
+      chartType: null,
+      chartData: []
+    };
+  }
+    const renderChart = (type, data) => {
+  if (!data.length) return null;
 
-    try {
-      const res = await fetch(`${API_BASE}/api/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q })
-      });
+  if (type === "pie")
+    return (
+      <PieChart width={500} height={300}>
+        <Pie data={data} dataKey="value">
+          {data.map((_, i) => (
+            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+          ))}
+        </Pie>
+      </PieChart>
+    );
+
+  if (type === "line")
+    return (
+      <LineChart width={500} height={300} data={data}>
+        <Line dataKey="value" stroke="#8b5cf6" />
+      </LineChart>
+    );
+
+  return (
+    <BarChart width={500} height={300} data={data}>
+      <Bar dataKey="value" fill="#8b5cf6" />
+    </BarChart>
+  );
+};
+
+  const data = nums.map((n, i) => ({
+    name: "Item " + (i + 1),
+    value: Number(n)
+  }));
+
+  let chartType = "bar";
+
+  if (text.toLowerCase().includes("pie")) chartType = "pie";
+  if (text.toLowerCase().includes("trend")) chartType = "line";
+
+  return {
+    insight: text,
+    chartType,
+    chartData: data,
+    sql: "AUTO GENERATED SQL PREVIEW"
+  };
+};
+
+  const data = await res.json();
+
+  const parsed = parseAIResponse(data.result);
+
+  setDashboardItems(prev => [
+    ...prev,
+    { type: "chart", ...parsed }
+  ]);
+
+  setIsQuerying(false);
+};
 
       const data = await res.json();
 
