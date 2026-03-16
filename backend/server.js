@@ -117,6 +117,9 @@ app.post("/api/query", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+app.get("/", (req,res)=>{
+  res.send("Conversight backend running");
+});
 
 app.listen(port, "0.0.0.0", () =>
   console.log("Server running on", port)
