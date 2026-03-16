@@ -1,156 +1,126 @@
-// IMPORTANT → THIS IS FINAL PRODUCTION VERSION
-
-import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, MessageSquare, Database, Sparkles, AlertCircle, RefreshCw, BarChart2, ChevronRight, Zap, Info, History, Menu, Plus, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
+import React, { useState, useRef } from "react";
 
 const API_BASE = "https://conversight-8jxp.onrender.com";
 
-const COLORS = ['#8b5cf6', '#0ea5e9', '#2dd4bf', '#f472b6', '#3b82f6', '#f59e0b', '#ec4899'];
-
 function App() {
+  const [datasetLoaded, setDatasetLoaded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const [file, setFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [datasetInfo, setDatasetInfo] = useState(null);
-  const [query, setQuery] = useState('');
-  const [isQuerying, setIsQuerying] = useState(false);
-  const [dashboardItems, setDashboardItems] = useState([]);
-  const [error, setError] = useState(null);
-
-  const fileInputRef = useRef(null);
-  const endOfChatRef = useRef(null);
-
-  useEffect(() => {
-    endOfChatRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [dashboardItems]);
+  const fileInputRef = useRef();
 
   // ================= UPLOAD CSV =================
-  const processFile = async (selectedFile) => {
-
-    if (!selectedFile.name.endsWith('.csv')) {
-      setError("Upload CSV only");
+  const uploadCSV = async (file) => {
+    if (!file) return;
+    if (!file.name.endsWith(".csv")) {
+      alert("Upload CSV only");
       return;
     }
 
-    setIsUploading(true);
-
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    formData.append("file", file);
+
+    setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        body: formData
+      const res = await fetch(`${API_BASE}/api/upload`, {
+        method: "POST",
+        body: formData,
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error);
 
-      setDatasetInfo(data);
+      setDatasetLoaded(true);
 
-      setDashboardItems([
-        {
-          type: 'system',
-          content: "Dataset uploaded successfully"
-        }
+      setMessages([
+        { type: "system", text: "✅ Dataset uploaded successfully" },
       ]);
-
     } catch (err) {
-      setError(err.message);
+      alert(err.message);
     }
 
-    setIsUploading(false);
+    setLoading(false);
   };
 
   // ================= QUERY =================
-  const handleQuery = async (e) => {
+  const askQuery = async (e) => {
     e.preventDefault();
-
     if (!query) return;
 
     const userQuery = query;
-    setQuery('');
-    setIsQuerying(true);
+    setQuery("");
 
-    setDashboardItems(prev => [...prev, {
-      type: 'user',
-      content: userQuery
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      { type: "user", text: userQuery },
+    ]);
+
+    setLoading(true);
 
     try {
-
-      const response = await fetch(`${API_BASE}/api/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userQuery })
+      const res = await fetch(`${API_BASE}/api/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: userQuery }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      setDashboardItems(prev => [...prev, {
-        type: 'ai',
-        content: data.result
-      }]);
-
+      setMessages((prev) => [
+        ...prev,
+        { type: "ai", text: data.result },
+      ]);
     } catch (err) {
-      setDashboardItems(prev => [...prev, {
-        type: 'error',
-        content: err.message
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        { type: "error", text: err.message },
+      ]);
     }
 
-    setIsQuerying(false);
+    setLoading(false);
   };
 
-  // ================= UI =================
   return (
-    <div className="p-10">
+    <div style={{ padding: 40, fontFamily: "Arial" }}>
+      <h1>Conversight AI</h1>
 
-      {!datasetInfo && (
-        <div>
-
-          <h1>Upload CSV</h1>
-
+      {!datasetLoaded && (
+        <>
+          <h2>Upload CSV</h2>
           <input
             type="file"
             ref={fileInputRef}
-            onChange={e => processFile(e.target.files[0])}
+            onChange={(e) => uploadCSV(e.target.files[0])}
           />
-
-          {isUploading && <p>Uploading...</p>}
-
-        </div>
+        </>
       )}
 
-      {datasetInfo && (
-        <div>
-
-          <form onSubmit={handleQuery}>
+      {datasetLoaded && (
+        <>
+          <form onSubmit={askQuery}>
             <input
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Ask about data"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask about dataset..."
+              style={{ width: 300 }}
             />
             <button>Ask</button>
           </form>
 
-          {dashboardItems.map((item, i) => (
-            <div key={i}>
-              <b>{item.type}</b> : {item.content}
-            </div>
-          ))}
+          {loading && <p>Thinking...</p>}
 
-          <div ref={endOfChatRef} />
-
-        </div>
+          <div style={{ marginTop: 20 }}>
+            {messages.map((m, i) => (
+              <p key={i}>
+                <b>{m.type}:</b> {m.text}
+              </p>
+            ))}
+          </div>
+        </>
       )}
-
     </div>
   );
 }
