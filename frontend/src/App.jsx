@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, Database, Sparkles, AlertCircle, RefreshCw, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import './index.css'
 
 const API_BASE = "https://conversight-8jxp.onrender.com";
 
