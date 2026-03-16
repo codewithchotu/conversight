@@ -1,3 +1,42 @@
+const BubbleBackground = () => {
+  const bubbles = Array.from({ length: 15 });
+
+  return (
+    <div className="bubble-bg-container">
+      {bubbles.map((_, i) => (
+        <div
+          key={i}
+          className="bubble"
+          style={{
+            width: Math.random() * 60 + 20,
+            height: Math.random() * 60 + 20,
+            left: Math.random() * 100 + "%",
+            animationDelay: Math.random() * 10 + "s"
+          }}
+        >
+          <div className="bubble-glow"/>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const Waves = () => (
+  <div className="waves-container">
+    <div className="wave wave-1"/>
+    <div className="wave wave-2"/>
+  </div>
+);
+
+const Ticker = () => (
+  <div className="ticker-wrap">
+    <div className="ticker-content">
+      {["AI","DATA","SQL","INSIGHT","ANALYTICS","CHART","INTELLIGENCE"].map((t,i)=>(
+        <div key={i} className="ticker-item">{t}</div>
+      ))}
+    </div>
+  </div>
+);
 import React, { useState, useRef } from "react";
 import { UploadCloud, ChevronRight, RefreshCw } from "lucide-react";
 import "./index.css";
@@ -14,22 +53,29 @@ export default function App() {
 
   const fileRef = useRef();
 
-  // LOGIN SCREEN
   if (!isAuth) {
-    return (
-      <div className="login-screen">
-        <div className="login-card">
-          <h1 className="login-logo">CONVERSIGHT</h1>
-          <button
-            className="auth-submit-btn"
-            onClick={() => setIsAuth(true)}
-          >
-            Enter Dashboard
-          </button>
-        </div>
+  return (
+    <div className="login-screen">
+
+      <BubbleBackground/>
+      <Waves/>
+      <Ticker/>
+
+      <div className="login-card">
+        <h1 className="login-logo">CONVERSIGHT</h1>
+        <p className="login-subtitle">Conversational Analytics Engine</p>
+
+        <button
+          className="auth-submit-btn"
+          onClick={() => setIsAuth(true)}
+        >
+          Enter Platform
+        </button>
       </div>
-    );
-  }
+
+    </div>
+  );
+}
 
   // CSV UPLOAD
   const upload = async (file) => {
@@ -77,8 +123,12 @@ export default function App() {
     setLoading(false);
   };
 
-  return (
-    <div className="app-container">
+return (
+  <div className="app-container">
+
+    <BubbleBackground/>
+    <Waves/>
+    <Ticker/>
 
       {!dataset && (
         <div className="upload-hero">
