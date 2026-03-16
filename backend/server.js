@@ -16,21 +16,18 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-/* ===== GEMINI KEYS FROM ENV ===== */
+/* ===== GEMINI KEYS ===== */
 const API_KEYS = [
     process.env.GEMINI_KEY_1,
     process.env.GEMINI_KEY_2,
     process.env.GEMINI_KEY_3
 ].filter(Boolean);
-<<<<<<< HEAD
 
 if (API_KEYS.length === 0) {
-    console.error("No Gemini API keys found in environment variables");
+    console.error("❌ No Gemini API keys found");
     process.exit(1);
 }
 
-=======
->>>>>>> 61b8168a2afe582364d11a97b54d4273f23871a4
 let currentKeyIndex = 0;
 const queryCache = {};
 
@@ -42,15 +39,14 @@ async function callGemini(prompt) {
     const cacheKey = crypto.createHash('md5').update(prompt).digest('hex');
     if (queryCache[cacheKey]) return queryCache[cacheKey];
 
-    for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+    for (let i = 0; i < API_KEYS.length; i++) {
         try {
-            const genAI = getAI();
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            const model = getAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
             const result = await model.generateContent(prompt);
             const text = result.response.text();
             queryCache[cacheKey] = text;
             return text;
-        } catch (error) {
+        } catch {
             currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
         }
     }
@@ -58,20 +54,19 @@ async function callGemini(prompt) {
     throw new Error('All Gemini keys failed');
 }
 
-/* ===== MULTER (Render Safe) ===== */
+/* ===== FILE UPLOAD ===== */
 const upload = multer({ dest: '/tmp/' });
 
-/* ===== SQLITE MEMORY DB ===== */
+/* ===== SQLITE ===== */
 const db = new Database(':memory:');
 
 let currentTableName = null;
 let currentSchema = null;
 
-const generateTableName = (filename) => {
-    return filename.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-};
+const generateTableName = (filename) =>
+    filename.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 
-/* ===== UPLOAD CSV ===== */
+/* ===== CSV UPLOAD ===== */
 app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -92,7 +87,8 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     });
 
     parser.on('end', () => {
-        if (rows.length === 0) return res.status(400).json({ error: 'Empty CSV' });
+        if (rows.length === 0)
+            return res.status(400).json({ error: 'Empty CSV' });
 
         const createSQL = `CREATE TABLE ${currentTableName} (${columns
             .map((c) => `"${c}" TEXT`)
@@ -102,9 +98,8 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         db.exec(createSQL);
 
         const insert = db.prepare(
-            `INSERT INTO ${currentTableName} (${columns.join(',')}) VALUES (${columns
-                .map(() => '?')
-                .join(',')})`
+            `INSERT INTO ${currentTableName} (${columns.join(',')})
+             VALUES (${columns.map(() => '?').join(',')})`
         );
 
         const insertMany = db.transaction((rows) => {
@@ -116,7 +111,16 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         fs.unlinkSync(filePath);
         currentSchema = columns;
 
-        res.json({ message: 'CSV loaded', table: currentTableName });
+        res.json({
+            message: 'CSV loaded successfully',
+            tableName: currentTableName,
+            schema: currentSchema
+        });
+    });
+
+    parser.on('error', (err) => {
+        console.error(err);
+        res.status(500).json({ error: 'CSV parse failed' });
     });
 });
 
@@ -147,10 +151,5 @@ app.post('/api/query', async (req, res) => {
 
 /* ===== START SERVER ===== */
 app.listen(port, () => {
-<<<<<<< HEAD
-    console.log(`Server running on port ${port}`);
+    console.log(`✅ Server running on port ${port}`);
 });
-=======
-    console.log(`Server running on ${port}`);
-});
->>>>>>> 61b8168a2afe582364d11a97b54d4273f23871a4
